@@ -42,14 +42,6 @@ function tape_backbit(x)
     if (tape_bit>128) tape_bit=1 tape_pos-=1
   end
 end
-function tape_len()
-  local b,r=tape_bit, (tape_pos-0x4300)*8
-  while b<128 do
-    r+=1
-    b<<=1
-  end
-  return r/8
-end
 
 tape_doclip=false
 
@@ -189,6 +181,8 @@ laby
      r,x,y,r,x,y [off][c][linkroom][#global][#doors]
 --]]
 -->8
+
+
 function new_room()
   local a= {col=1,x=1,y=1,w=1,h=1}
   for x in all(split "way,lad,pol,bel,loc,key,con,lma,swi,frc,trp,tmc,tmd,mum,frk,gun") do
@@ -469,7 +463,6 @@ function laby_draw_map()
  for f in all(room.frk) do
    msets(f[1]+16,f[2],1,2,0x0a)
    msets(f[1]+32,f[2],1,2,0x0b + f[3])  
-   printh(f[3])   
  end
  --gun
  for g in all(room.gun) do
@@ -676,11 +669,9 @@ frc_spr=split("0x7a,0x79,0x78,0x77,0x76,0x5f,0x5e,0x5d,0x5c")
 function _init()
   tape_load()
   --tape_clear()
-
+  
   state="main"
   labylist=tape_list_laby()
-  store_len=tape_len()
-  store_max=0x1c00
   poke(0x5f2d, 0x3) --mouse and keyboard
   
   anim_cycle=0
@@ -731,11 +722,12 @@ function update.main()
   menu_pos=1
   menu_retstate="main_selected"
   menu_title = "select labyrinth"
-  menu_right= store_len.."/"..store_max
+  menu_right= ""
   state="menu"
   
   if stat(100) then
     tape_rewind_save()
+
     local str,nb=tape_getstr(),tape_bits(5)
     tape_rewind_save()
     tape_bits(16,0)
@@ -1302,12 +1294,6 @@ function draw_map()
   --shifted
   map(0,1,0,8+3,16,15,2)
   
-  --lightning
-  for m in all(room.lma) do
-    spr(0x35,m[1]*8,m[2]*8-3)
-    if (m[3]==1) spr(0x6c+rnd(4)\1,m[1]*8,m[2]*8,1,2,rnd(2)>=0.5,false)
-  end
-
   --forcefield
   pal(15, forcecolor[anim_cycle% #forcecolor +1])
   for f in all(room.frc) do
@@ -1363,6 +1349,12 @@ function draw_map()
     pal()
   end
   
+  --lightning
+  for m in all(room.lma) do
+    spr(0x35,m[1]*8,m[2]*8-3)
+    if (m[3]==1) spr(0x6c+rnd(4)\1,m[1]*8,m[2]*8,1,2,rnd(2)>=0.5,false)
+  end
+  
   --foreground  
   mypal(room.col)
   map(32,1,0,8,16,15,1)--front
@@ -1388,7 +1380,7 @@ end
 function draw.level_edit()
   cls()
   draw_grid()
-  draw_topbar("room "..twodigit(roomnb).."/"..twodigit(#laby.room).." "..objtype..tostr(ord(key)),nil,mx.."x"..my)
+  draw_topbar("room "..twodigit(roomnb).."/"..twodigit(#laby.room).." "..objtype,nil,mx.."x"..my)
 
   draw_map()
   
@@ -1463,7 +1455,7 @@ end
 function draw.map_edit()
   cls()
   draw_grid()
-  draw_topbar("map",9,mx.."x"..my)
+  draw_topbar("map",2,mx.."x"..my)
   local i=1
   for r in all(laby.room) do
     r.xx,r.yy,r.ww,r.hh=r.x*8,r.y*8,(r.x+r.w)*8-1 , (r.y+r.h)*8-1
@@ -1477,14 +1469,14 @@ function draw.map_edit()
   end  
   
   function _line(x1,y1,x2,y2,c)
-    for x=-1,0 do
-      for y=-1,0 do
+    for x=-1,1 do
+      for y=-1,1 do
         line(x1+x,y1+y,x2+x,y2+y,c)
       end
     end
   end
   
-  --[[  
+  ---[[  
   for d in all(laby.door) do
     local r1,r2,c=laby.room[d[1] ],laby.room[d[4] ]
     if r1!=r2 then
@@ -1492,39 +1484,51 @@ function draw.map_edit()
       x2=mid(r2.xx,r2.ww,r1.ww)
       y1=mid(r1.yy,r1.hh,r2.yy)
       y2=mid(r2.yy,r2.hh,r1.hh)
-      if abs(y1-y2)<2 then
+      local dx,dy=abs(x1-x2),abs(y1-y2)
+      if dx>1 and dy<2 then
         x1=(x2+x1)/2
         x2=x1
-      elseif abs(x1-x2)<2 then
+      elseif dx<2 and dy>1 then
         y1=(y2+y1)/2
         y2=y1
-      else
-        --x1,x2,y1,y2=r1.cx,r2.cx,r1.cy,r2.cy
       end
-      xx=(min(x1,x2)-4)\8
-      yy=(min(y1,y2)-4)\8
-      --_line(x1,y1,x2,y2,1)
-      rect(xx*8+4,yy*8+4,xx*8+4+7,yy*8+4+7,15)
- 
+      _line(x1,y1,x1,y2,0)
+
     end
   end  
-  --]]
-  ---[[
-  for d in all(laby.door) do
-    local r1,r2,c=laby.room[d[1] ],laby.room[d[4] ]
-    _line(r1.cx,r1.cy,r2.cx,r2.cy,0)
-  end 
-  --]] 
- 
+
+ ---[[
   for r in all(laby.room) do
     rectfill(r.x*8+1,r.y*8+1,r.ww-1,r.hh-1,colors[r.col*2-1])
-    print(i,r.x*8+2,r.y*8+2,7)  
+    r.hi=r.xx<mxx and mxx<=r.ww and r.yy<myy and myy<=r.hh
+  end
+  --]]  
+
+  for d in all(laby.door) do
+    local r1,r2=laby.room[d[1] ],laby.room[d[4] ]
+    if (r1.hi or r2.hi) line(r1.cx,r1.cy,r2.cx,r2.cy,1)
+  end 
+ 
+  x=16
+  for r in all(laby.room) do
+    for a in all(r.loc) do
+      mypal(a[4])
+      spr(0x59,x,r.hi and 2 or 0) 
+      x+=4
+    end
+    pal()
+    for a in all(r.key) do
+      spr(0x25+a[1],x,r.hi and 2 or 0)
+      x+=4
+    end
+    print(i,r.x*8+2,r.y*8+2,colors[r.col*2])  
     i+=1
-  end  
+  end
  
   
   spr(0x22,mxx,myy)
 end
+
 __gfx__
 00000000000000000000000000000000005005000006500000000088820000000000009a94000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000555500000650000008208222082000000099a999440000000000000000000000000000000ccc000820888208882082
