@@ -121,7 +121,7 @@ function tape_list_laby()
   local list,save = {},laby
   tape_rewind()
   while tape_read_laby() do
-    add(list,laby.name)
+    add(list,laby.name.." ("..#laby.room.." rooms)")
   end
   laby=save
   return list
@@ -373,8 +373,12 @@ function laby_draw_map()
   --pol
   for p in all(room.pol) do
     for i=p[3],p[3]+p[1]-2 do
-      if (mget(p[2],i)>=1 and mget(p[2],i)<=3) mset(32+p[2],i,0x15)
-      mset(p[2],i,0x05)
+      if mget(p[2],i)==2 then
+        mset(32+p[2],i,0x7b) 
+        mset(p[2],i,0x15)
+      else
+        mset(p[2],i,0x05)
+      end
     end
     mset(16+p[2],p[3]+p[1]-1,0x25)
   end
@@ -483,6 +487,8 @@ function laby_draw_anim_map()
       c[6]=(anim_cycle%4)
     elseif c[1]==3 then
       c[6]=3-(anim_cycle%4)
+    else
+      c[6]=0
     end
     msets(c[2],c[3],2,1,0x36+c[6]*2)
   end
